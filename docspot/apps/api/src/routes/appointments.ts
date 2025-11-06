@@ -1,5 +1,6 @@
 import { Router } from "express";
 import prisma from "../utils/prisma";
+import { AppointmentStatus } from "@prisma/client";
 
 const router = Router();
 
@@ -17,6 +18,7 @@ router.post("/", async (req, res) => {
     const existing = await prisma.appointment.findFirst({
       where: { doctorId, startsAt: new Date(startsAt) },
     });
+
     if (existing) {
       return res
         .status(400)
@@ -30,6 +32,7 @@ router.post("/", async (req, res) => {
         clinicLocationId,
         startsAt: new Date(startsAt),
         endsAt: new Date(endsAt),
+        status: AppointmentStatus.pending,
       },
       include: {
         doctor: { include: { specialty: true } },
@@ -51,7 +54,9 @@ router.get("/", async (req, res) => {
   try {
     const { status } = req.query;
 
-    const filter = status ? { status: String(status) } : {};
+    const filter = status
+      ? { status: status as AppointmentStatus }
+      : undefined;
 
     const appointments = await prisma.appointment.findMany({
       where: filter,
@@ -99,10 +104,12 @@ router.get("/:userId", async (req, res) => {
 router.patch("/:id/confirm", async (req, res) => {
   try {
     const { id } = req.params;
+
     const updated = await prisma.appointment.update({
       where: { id },
-      data: { status: "confirmed" },
+      data: { status: AppointmentStatus.confirmed },
     });
+
     res.json({ message: "Appointment confirmed", appointment: updated });
   } catch (err) {
     console.error("❌ Error confirming appointment:", err);
@@ -116,10 +123,12 @@ router.patch("/:id/confirm", async (req, res) => {
 router.patch("/:id/cancel", async (req, res) => {
   try {
     const { id } = req.params;
+
     const updated = await prisma.appointment.update({
       where: { id },
-      data: { status: "cancelled" },
+      data: { status: AppointmentStatus.cancelled },
     });
+
     res.json({ message: "Appointment cancelled", appointment: updated });
   } catch (err) {
     console.error("❌ Error cancelling appointment:", err);
@@ -128,18 +137,20 @@ router.patch("/:id/cancel", async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// PATCH /appointments/:id/pay → mark as paid
+// PATCH /appointments/:id/pay
 // ------------------------------------------------------------
 router.patch("/:id/pay", async (req, res) => {
   try {
     const { id } = req.params;
+
     const updated = await prisma.appointment.update({
       where: { id },
-      data: { status: "paid" },
+      data: { status: AppointmentStatus.paid },
     });
+
     res.json({ message: "Appointment marked as paid", appointment: updated });
   } catch (err) {
-    console.error("❌ Error marking appointment as paid:", err);
+    console.error("❌ Error marking as paid:", err);
     res.status(500).json({ error: "Failed to update payment status" });
   }
 });
