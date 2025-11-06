@@ -1,0 +1,101 @@
+// Prisma schema for Doctor Appointment System (Veersa Hackathon)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  phone        String?
+  passwordHash String?
+  createdAt    DateTime      @default(now())
+  appointments Appointment[]
+}
+
+model Specialty {
+  id      Int      @id @default(autoincrement())
+  name    String   @unique
+  doctors Doctor[]
+}
+
+model Doctor {
+  id              String   @id @default(uuid())
+  name            String   @unique
+  yearsExperience Int
+  rating          Float
+  specialtyId     Int
+  specialty       Specialty @relation(fields: [specialtyId], references: [id])
+  clinics         ClinicLocation[]
+  schedules       DoctorSchedule[]
+  appointments    Appointment[]
+}
+
+
+model ClinicLocation {
+  id           String        @id @default(uuid())
+  doctorId     String
+  doctor       Doctor        @relation(fields: [doctorId], references: [id])
+  address      String
+  lat          Float
+  lng          Float
+  appointments Appointment[] // 👈 add this line to complete the relation
+}
+
+model DoctorSchedule {
+  id          String @id @default(uuid())
+  doctorId    String
+  doctor      Doctor @relation(fields: [doctorId], references: [id])
+  weekday     Int // 0-6
+  startTime   String // "09:00"
+  endTime     String // "17:00"
+  slotMinutes Int    @default(30)
+}
+
+model Appointment {
+  id               String            @id @default(uuid())
+  doctorId         String
+  userId           String
+  clinicLocationId String
+  startsAt         DateTime
+  endsAt           DateTime
+  status           AppointmentStatus @default(pending)
+  createdAt        DateTime          @default(now())
+  doctor           Doctor            @relation(fields: [doctorId], references: [id])
+  user             User              @relation(fields: [userId], references: [id])
+  clinic           ClinicLocation    @relation(fields: [clinicLocationId], references: [id])
+  payment          Payment?
+
+  @@unique([doctorId, startsAt]) // prevent double booking
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  appointmentId String        @unique
+  provider      String
+  providerRef   String?
+  amountCents   Int
+  currency      String        @default("INR")
+  status        PaymentStatus @default(initiated)
+  createdAt     DateTime      @default(now())
+  appointment   Appointment   @relation(fields: [appointmentId], references: [id])
+}
+
+enum AppointmentStatus {
+  pending
+  confirmed
+  paid
+  cancelled
+}
+
+enum PaymentStatus {
+  initiated
+  succeeded
+  failed
+}
